@@ -77,6 +77,35 @@ class ActiveContextHistory(BaseModel):
 class BaseArgs(BaseModel):
     """Base model for arguments requiring a workspace ID."""
     workspace_id: Annotated[str, Field(description="Identifier for the workspace (e.g., absolute path)")]
+    
+    @classmethod
+    def model_json_schema(cls, **kwargs) -> Dict[str, Any]:
+        """Override to add additionalProperties: false to all object schemas for OpenAI compatibility."""
+        schema = super().model_json_schema(**kwargs)
+        
+        def add_additional_properties_false(obj):
+            """Recursively add additionalProperties: false to all object schemas."""
+            if isinstance(obj, dict):
+                if obj.get('type') == 'object' and 'additionalProperties' not in obj:
+                    obj['additionalProperties'] = False
+                
+                # Handle anyOf, oneOf, allOf
+                for key in ['anyOf', 'oneOf', 'allOf']:
+                    if key in obj:
+                        for item in obj[key]:
+                            add_additional_properties_false(item)
+                
+                # Handle properties
+                if 'properties' in obj:
+                    for prop_value in obj['properties'].values():
+                        add_additional_properties_false(prop_value)
+                
+                # Handle items (for arrays)
+                if 'items' in obj:
+                    add_additional_properties_false(obj['items'])
+        
+        add_additional_properties_false(schema)
+        return schema
 
 class IntCoercionMixin(BaseModel):
     """Mixin to coerce digit-only string inputs to integers for specified INT_FIELDS."""
