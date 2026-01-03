@@ -86,7 +86,8 @@ class BaseArgs(BaseModel):
         def add_additional_properties_false(obj):
             """Recursively add additionalProperties: false to all object schemas."""
             if isinstance(obj, dict):
-                if obj.get('type') == 'object' and 'additionalProperties' not in obj:
+                # Force additionalProperties to false for all object types
+                if obj.get('type') == 'object':
                     obj['additionalProperties'] = False
                 
                 # Handle anyOf, oneOf, allOf

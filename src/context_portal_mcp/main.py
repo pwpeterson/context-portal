@@ -26,6 +26,7 @@ try:
         resolve_workspace_id,
         WorkspaceDetector
     )  # Import workspace detection
+    from .core.openai_compat import patch_mcp_server_for_openai  # OpenAI schema compatibility
 except ImportError:
     sys.path.insert(0, os.path.abspath(
         os.path.join(os.path.dirname(__file__), '..', '..')
@@ -37,6 +38,7 @@ except ImportError:
         resolve_workspace_id,
         WorkspaceDetector
     )
+    from src.context_portal_mcp.core.openai_compat import patch_mcp_server_for_openai
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +124,9 @@ conport_mcp = FastMCP(
     lifespan=conport_lifespan
 )
 
+# Patch the MCP server for OpenAI compatibility
+patch_mcp_server_for_openai(conport_mcp)
+
 # --- FastAPI App ---
 # The FastAPI app will be the main ASGI app, and FastMCP will be mounted onto it.
 # We keep our own FastAPI app instance in case we want to add other non-MCP HTTP endpoints later.
@@ -183,10 +188,12 @@ async def tool_update_product_context(
         description="Identifier for the workspace (e.g., absolute path)"
     )],
     content: Annotated[Optional[Dict[str, Any]], Field(
-        description="The full new context content as a dictionary. Overwrites existing."
+        description="The full new context content as a dictionary. Overwrites existing.",
+        json_schema_extra={"anyOf": [{"type": "object", "additionalProperties": False}, {"type": "null"}]}
     )] = None,
     patch_content: Annotated[Optional[Dict[str, Any]], Field(
-        description="A dictionary of changes to apply to the existing context (add/update keys)."
+        description="A dictionary of changes to apply to the existing context (add/update keys).",
+        json_schema_extra={"anyOf": [{"type": "object", "additionalProperties": False}, {"type": "null"}]}
     )] = None
 ) -> Dict[str, Any]:
     """
@@ -282,10 +289,12 @@ async def tool_update_active_context(
         description="Identifier for the workspace (e.g., absolute path)"
     )],
     content: Annotated[Optional[Dict[str, Any]], Field(
-        description="The full new context content as a dictionary. Overwrites existing."
+        description="The full new context content as a dictionary. Overwrites existing.",
+        json_schema_extra={"anyOf": [{"type": "object", "additionalProperties": False}, {"type": "null"}]}
     )] = None,
     patch_content: Annotated[Optional[Dict[str, Any]], Field(
-        description="A dictionary of changes to apply to the existing context (add/update keys)."
+        description="A dictionary of changes to apply to the existing context (add/update keys).",
+        json_schema_extra={"anyOf": [{"type": "object", "additionalProperties": False}, {"type": "null"}]}
     )] = None
 ) -> Dict[str, Any]:
     """
@@ -907,7 +916,21 @@ async def tool_log_custom_data(
         min_length=1, description="Key for the custom data (unique within category)"
     )],
     value: Annotated[Any, Field(
-        description="The custom data value (JSON serializable)"
+        description="The custom data value (JSON serializable)",
+        json_schema_extra={"anyOf": [
+            {"type": "object", "additionalProperties": False},
+            {"type": "array", "items": {"anyOf": [
+                {"type": "object", "additionalProperties": False},
+                {"type": "string"},
+                {"type": "number"},
+                {"type": "boolean"},
+                {"type": "null"}
+            ]}},
+            {"type": "string"},
+            {"type": "number"},
+            {"type": "boolean"},
+            {"type": "null"}
+        ]}
     )],
     ctx: Context
 ) -> Dict[str, Any]:
@@ -1412,7 +1435,8 @@ async def tool_batch_log_items(
                     "(e.g., 'decision', 'progress_entry', 'system_pattern', 'custom_data')"
     )],
     items: Annotated[List[Dict[str, Any]], Field(
-        description="A list of dictionaries, each representing the arguments for a single item log."
+        description="A list of dictionaries, each representing the arguments for a single item log.",
+        json_schema_extra={"type": "array", "items": {"type": "object", "additionalProperties": False}}
     )],
     ctx: Context
 ) -> Dict[str, Any]:
